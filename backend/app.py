@@ -551,6 +551,9 @@ def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.role == 'admin':
         return jsonify({'error': '不能删除管理员账号'}), 400
+    # 清除外键引用后再删除
+    Question.query.filter_by(created_by=user.id).update({'created_by': None})
+    ExamPaper.query.filter_by(grader_id=user.id).update({'grader_id': None})
     db.session.delete(user)
     db.session.commit()
     return '', 204
