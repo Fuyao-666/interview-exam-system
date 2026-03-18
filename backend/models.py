@@ -77,7 +77,7 @@ class ExamConfig(db.Model):
     programming_count = db.Column(db.Integer, default=2)
     programming_total_score = db.Column(db.Integer, default=40)
     # 考试时长
-    duration_minutes = db.Column(db.Integer, default=60)
+    duration_minutes = db.Column(db.Integer, default=90)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

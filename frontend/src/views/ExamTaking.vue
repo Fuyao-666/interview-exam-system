@@ -77,7 +77,7 @@
               <span class="opt-key" :class="{ selected: isOptionSelected(question.id, getOptionKey(optIndex)) }">
                 {{ getOptionKey(optIndex) }}
               </span>
-              <span class="opt-text">{{ option.substring(3) }}</span>
+              <span class="opt-text">{{ stripOptionPrefix(option) }}</span>
             </div>
           </div>
 
@@ -200,6 +200,12 @@ function getQuestionTypeText(type) {
 
 function getOptionKey(index) {
   return String.fromCharCode(65 + index)
+}
+
+function stripOptionPrefix(option) {
+  // 兼容 "A. xxx" / "A、xxx" / "A.xxx" 格式和无前缀格式
+  const match = option.match(/^[A-Da-d][.、\s]\s*(.+)/)
+  return match ? match[1] : option
 }
 
 function isOptionSelected(questionId, optionKey) {

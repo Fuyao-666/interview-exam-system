@@ -46,14 +46,18 @@ def init_db():
                 admin = User(username='admin', role='admin')
                 admin.set_password('admin123')
                 db.session.add(admin)
-                config = ExamConfig.query.first()
-                if not config:
-                    config = ExamConfig()
-                    db.session.add(config)
                 db.session.commit()
                 print("已创建默认管理员账号：admin / admin123")
-            else:
-                print("数据库已初始化，管理员账号已存在")
+            # 确保考试配置存在且时长为90分钟
+            config = ExamConfig.query.first()
+            if not config:
+                config = ExamConfig(duration_minutes=90)
+                db.session.add(config)
+                db.session.commit()
+            elif config.duration_minutes != 90:
+                config.duration_minutes = 90
+                db.session.commit()
+                print("已更新考试时长为90分钟")
     except Exception as e:
         print(f"初始化数据库失败: {e}")
         import traceback
