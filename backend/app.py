@@ -324,10 +324,16 @@ def get_exam_paper(paper_id):
         q_dict['max_score'] = exam_score
         exam_questions.append(q_dict)
     
+    # 服务器端计算剩余秒数，避免时区问题
+    duration = config.duration_minutes if config else 60
+    elapsed = (datetime.now() - paper.start_time).total_seconds()
+    remaining_seconds = max(0, duration * 60 - int(elapsed))
+
     return jsonify({
         'questions': exam_questions,
         'start_time': paper.start_time.isoformat(),
-        'duration_minutes': config.duration_minutes if config else 60,
+        'duration_minutes': duration,
+        'remaining_seconds': remaining_seconds,
         'candidate_name': paper.candidate.name if paper.candidate else '',
         'position': paper.candidate.position if paper.candidate else ''
     })

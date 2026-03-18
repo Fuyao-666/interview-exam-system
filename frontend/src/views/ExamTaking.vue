@@ -321,7 +321,12 @@ onMounted(async () => {
     loadAnswersFromLocal()
 
     const elapsed = Math.floor((new Date() - startTime.value) / 1000)
-    timeLeft.value = Math.max(0, durationMinutes.value * 60 - elapsed)
+    // 优先使用服务器计算的剩余秒数，避免时区差异
+    if (data.remaining_seconds !== undefined) {
+      timeLeft.value = data.remaining_seconds
+    } else {
+      timeLeft.value = Math.max(0, durationMinutes.value * 60 - elapsed)
+    }
 
     timerInterval.value = setInterval(() => {
       timeLeft.value--
