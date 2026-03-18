@@ -77,7 +77,7 @@ def login():
     if not user.is_active:
         return jsonify({'error': '账号已被停用'}), 403
     
-    access_token = create_access_token(identity={'id': user.id, 'role': user.role})
+    access_token = create_access_token(identity=json.dumps({'id': user.id, 'role': user.role}))
     return jsonify({'access_token': access_token, 'user': user.to_dict()})
 
 
@@ -85,7 +85,7 @@ def login():
 @app.route('/api/questions', methods=['GET'])
 @jwt_required()
 def get_questions():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限访问'}), 403
     
@@ -101,7 +101,7 @@ def get_questions():
 @app.route('/api/questions', methods=['POST'])
 @jwt_required()
 def create_question():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限创建题目'}), 403
     
@@ -131,7 +131,7 @@ def create_question():
 @app.route('/api/questions/<int:question_id>', methods=['PUT'])
 @jwt_required()
 def update_question(question_id):
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限修改题目'}), 403
     
@@ -156,7 +156,7 @@ def update_question(question_id):
 @app.route('/api/questions/<int:question_id>', methods=['DELETE'])
 @jwt_required()
 def delete_question(question_id):
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限删除题目'}), 403
     
@@ -180,7 +180,7 @@ def get_exam_config():
 @app.route('/api/exam/config', methods=['PUT'])
 @jwt_required()
 def update_exam_config():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限修改配置'}), 403
     
@@ -445,7 +445,7 @@ def record_focus_loss():
 @app.route('/api/review/pending', methods=['GET'])
 @jwt_required()
 def get_pending_papers():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限访问'}), 403
     
@@ -467,7 +467,7 @@ def get_pending_papers():
 @app.route('/api/review/grade', methods=['POST'])
 @jwt_required()
 def grade_paper():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] not in ['admin', 'interviewer']:
         return jsonify({'error': '无权限阅卷'}), 403
     
@@ -502,7 +502,7 @@ def grade_paper():
 @app.route('/api/admin/users', methods=['GET'])
 @jwt_required()
 def get_users():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可访问'}), 403
     return jsonify([u.to_dict() for u in User.query.all()])
@@ -511,7 +511,7 @@ def get_users():
 @app.route('/api/admin/users', methods=['POST'])
 @jwt_required()
 def create_user():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可创建用户'}), 403
     
@@ -532,7 +532,7 @@ def create_user():
 @app.route('/api/admin/users/<int:user_id>/toggle', methods=['POST'])
 @jwt_required()
 def toggle_user(user_id):
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可操作'}), 403
     user = User.query.get_or_404(user_id)
@@ -545,7 +545,7 @@ def toggle_user(user_id):
 @jwt_required()
 def delete_user(user_id):
     """删除面试官账号"""
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可操作'}), 403
     user = User.query.get_or_404(user_id)
@@ -559,7 +559,7 @@ def delete_user(user_id):
 @app.route('/api/admin/results', methods=['GET'])
 @jwt_required()
 def get_results():
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可访问'}), 403
     
@@ -576,7 +576,7 @@ def get_results():
 @jwt_required()
 def delete_paper(paper_id):
     """删除已答试卷"""
-    current_user = get_jwt_identity()
+    current_user = json.loads(get_jwt_identity())
     if current_user['role'] != 'admin':
         return jsonify({'error': '仅管理员可操作'}), 403
     paper = ExamPaper.query.get_or_404(paper_id)
