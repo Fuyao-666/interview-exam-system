@@ -586,6 +586,25 @@ def delete_paper(paper_id):
     return '', 204
 
 
+# ==================== 创建管理员接口（一次性使用） ====================
+@app.route('/api/create-admin', methods=['POST'])
+def create_admin():
+    """创建管理员账号"""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    secret = data.get('secret')
+    if secret != app.config['JWT_SECRET_KEY']:
+        return jsonify({'error': '无权限'}), 403
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': '用户名已存在'}), 400
+    user = User(username=username, role='admin')
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'message': f'管理员 {username} 创建成功', 'user': user.to_dict()}), 201
+
+
 # ==================== 数据库种子数据接口 ====================
 @app.route('/api/seed', methods=['POST'])
 def seed_data():
