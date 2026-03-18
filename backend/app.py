@@ -38,17 +38,26 @@ jwt = JWTManager(app)
 
 # ==================== 初始化数据库 ====================
 def init_db():
-    with app.app_context():
-        db.create_all()
-        admin = User.query.filter_by(role='admin').first()
-        if not admin:
-            admin = User(username='admin', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            config = ExamConfig()
-            db.session.add(config)
-            db.session.commit()
-            print("已创建默认管理员账号：admin / admin123")
+    try:
+        with app.app_context():
+            db.create_all()
+            admin = User.query.filter_by(role='admin').first()
+            if not admin:
+                admin = User(username='admin', role='admin')
+                admin.set_password('admin123')
+                db.session.add(admin)
+                config = ExamConfig.query.first()
+                if not config:
+                    config = ExamConfig()
+                    db.session.add(config)
+                db.session.commit()
+                print("已创建默认管理员账号：admin / admin123")
+            else:
+                print("数据库已初始化，管理员账号已存在")
+    except Exception as e:
+        print(f"初始化数据库失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # ==================== 认证路由 ====================
@@ -565,6 +574,106 @@ def delete_paper(paper_id):
     db.session.delete(paper)
     db.session.commit()
     return '', 204
+
+
+# ==================== 数据库种子数据接口 ====================
+@app.route('/api/seed', methods=['POST'])
+def seed_data():
+    """一次性初始化种子数据（管理员账号+题库），仅在题库为空时执行"""
+    existing_questions = Question.query.count()
+    if existing_questions > 0:
+        return jsonify({'message': f'题库已有{existing_questions}道题目，无需重新导入'}), 200
+
+    # 确保管理员账号存在
+    admin = User.query.filter_by(role='admin').first()
+    if not admin:
+        admin = User(username='admin', role='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+
+    # 确保考试配置存在
+    config = ExamConfig.query.first()
+    if not config:
+        config = ExamConfig()
+        db.session.add(config)
+
+    # 导入20道Python选择题
+    choice_questions = [
+        {"text": "Python中以下哪个关键字用于定义函数？", "options": ["def", "func", "define", "function"], "answer": "A"},
+        {"text": "以下哪个是Python的合法变量名？", "options": ["2var", "my-var", "_myVar", "my var"], "answer": "C"},
+        {"text": "Python中用于输出内容到控制台的函数是？", "options": ["echo()", "print()", "console.log()", "write()"], "answer": "B"},
+        {"text": "以下哪种数据类型是不可变的？", "options": ["list", "dict", "set", "tuple"], "answer": "D"},
+        {"text": "Python中如何获取列表的长度？", "options": ["list.size()", "len(list)", "list.length", "size(list)"], "answer": "B"},
+        {"text": "以下哪个操作符用于整除？", "options": ["/", "//", "%", "**"], "answer": "B"},
+        {"text": "Python中如何创建一个空字典？", "options": ["dict[]", "{}", "dict()", "{}和dict()都可以"], "answer": "D"},
+        {"text": "以下哪个方法用于向列表末尾添加元素？", "options": ["add()", "insert()", "append()", "push()"], "answer": "C"},
+        {"text": "Python中字符串可以用以下哪种引号定义？", "options": ["只能用双引号", "只能用单引号", "单引号或双引号都可以", "只能用三引号"], "answer": "C"},
+        {"text": "以下哪个关键字用于处理异常？", "options": ["catch", "except", "handle", "error"], "answer": "B"},
+        {"text": "Python中 'is' 和 '==' 的区别是什么？", "options": ["没有区别", "'is'比较值，'=='比较引用", "'is'比较引用，'=='比较值", "'is'只能用于数字"], "answer": "C"},
+        {"text": "以下哪个内置函数可以将字符串转为整数？", "options": ["str()", "int()", "float()", "bool()"], "answer": "B"},
+        {"text": "Python中列表切片 a[1:3] 包含哪些索引的元素？", "options": ["1, 2, 3", "1, 2", "0, 1, 2", "0, 1"], "answer": "B"},
+        {"text": "以下哪个模块用于生成随机数？", "options": ["math", "os", "random", "sys"], "answer": "C"},
+        {"text": "Python中如何定义一个类？", "options": ["class MyClass:", "define MyClass:", "struct MyClass:", "new MyClass:"], "answer": "A"},
+        {"text": "以下哪个方法可以将列表反转？", "options": ["list.sort()", "list.reverse()", "list.flip()", "list.invert()"], "answer": "B"},
+        {"text": "Python中哪个关键字用于导入模块？", "options": ["include", "require", "import", "using"], "answer": "C"},
+        {"text": "以下哪种循环在条件为真时执行？", "options": ["for", "while", "do-while", "foreach"], "answer": "B"},
+        {"text": "Python文件的默认扩展名是？", "options": [".python", ".pt", ".py", ".pn"], "answer": "C"},
+        {"text": "以下哪个函数可以打开文件？", "options": ["open()", "read()", "file()", "load()"], "answer": "A"},
+    ]
+
+    for q in choice_questions:
+        question = Question(
+            question_type='single',
+            question_text=q["text"],
+            options=json.dumps(q["options"], ensure_ascii=False),
+            answer=json.dumps(q["answer"], ensure_ascii=False),
+            max_score=3
+        )
+        db.session.add(question)
+
+    # 导入5道简答题
+    essay_questions = [
+        "请简述Python中列表(list)和元组(tuple)的主要区别。",
+        "请解释Python中的装饰器(decorator)是什么，并举一个简单例子说明。",
+        "请简述Python中的GIL(全局解释器锁)是什么，它对多线程编程有什么影响？",
+        "请解释Python中深拷贝和浅拷贝的区别。",
+        "请简述Python中异常处理的机制，try/except/finally各起什么作用？",
+    ]
+
+    for text in essay_questions:
+        question = Question(
+            question_type='essay',
+            question_text=text,
+            max_score=10
+        )
+        db.session.add(question)
+
+    # 导入3道编程/设计题
+    programming_questions = [
+        "请编写一个Python函数，接收一个列表作为参数，返回列表中出现次数最多的元素。如果有多个元素出现次数相同，返回其中任意一个即可。请考虑边界情况。",
+        "请设计一个简单的RPA流程，用于自动化处理Excel报表：读取源文件，按部门汇总销售数据，生成新的汇总报表。请用伪代码或Python代码描述核心逻辑。",
+        "请编写一个Python类来实现一个简单的缓存系统(LRU Cache)，支持get和put操作，并在缓存满时淘汰最近最少使用的数据。",
+    ]
+
+    for text in programming_questions:
+        question = Question(
+            question_type='programming',
+            question_text=text,
+            max_score=20
+        )
+        db.session.add(question)
+
+    db.session.commit()
+
+    total = Question.query.count()
+    return jsonify({
+        'message': f'种子数据初始化成功！共导入{total}道题目',
+        'detail': {
+            'choice': len(choice_questions),
+            'essay': len(essay_questions),
+            'programming': len(programming_questions)
+        }
+    })
 
 
 # ==================== 前端静态文件服务 ====================
