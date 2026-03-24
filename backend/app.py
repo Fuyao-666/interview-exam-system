@@ -621,13 +621,15 @@ def create_admin():
 # ==================== 数据库种子数据接口 ====================
 @app.route('/api/seed', methods=['POST'])
 def seed_data():
-    """一次性初始化种子数据（管理员账号+题库），仅在题库为空时执行"""
+    """初始化或重置题库数据"""
+    force = request.args.get('force', 'false') == 'true'
+
     existing_questions = Question.query.count()
-    if existing_questions > 0:
-        return jsonify({'message': f'题库已有{existing_questions}道题目，无需重新导入'}), 200
+    if existing_questions > 0 and not force:
+        return jsonify({'message': f'题库已有{existing_questions}道题目，如需重置请加 ?force=true 参数'}), 200
 
     # 确保管理员账号存在
-    admin = User.query.filter_by(role='admin').first()
+    admin = User.query.filter_by(username='admin').first()
     if not admin:
         admin = User(username='admin', role='admin')
         admin.set_password('admin123')
@@ -636,31 +638,36 @@ def seed_data():
     # 确保考试配置存在
     config = ExamConfig.query.first()
     if not config:
-        config = ExamConfig()
+        config = ExamConfig(duration_minutes=90)
         db.session.add(config)
 
-    # 导入20道Python选择题
+    # 如果 force=true，清空旧题库
+    if force and existing_questions > 0:
+        Question.query.delete()
+        db.session.commit()
+
+    # ==================== 20道Python选择题 ====================
     choice_questions = [
-        {"text": "Python中以下哪个关键字用于定义函数？", "options": ["def", "func", "define", "function"], "answer": "A"},
-        {"text": "以下哪个是Python的合法变量名？", "options": ["2var", "my-var", "_myVar", "my var"], "answer": "C"},
-        {"text": "Python中用于输出内容到控制台的函数是？", "options": ["echo()", "print()", "console.log()", "write()"], "answer": "B"},
-        {"text": "以下哪种数据类型是不可变的？", "options": ["list", "dict", "set", "tuple"], "answer": "D"},
-        {"text": "Python中如何获取列表的长度？", "options": ["list.size()", "len(list)", "list.length", "size(list)"], "answer": "B"},
-        {"text": "以下哪个操作符用于整除？", "options": ["/", "//", "%", "**"], "answer": "B"},
-        {"text": "Python中如何创建一个空字典？", "options": ["dict[]", "{}", "dict()", "{}和dict()都可以"], "answer": "D"},
-        {"text": "以下哪个方法用于向列表末尾添加元素？", "options": ["add()", "insert()", "append()", "push()"], "answer": "C"},
-        {"text": "Python中字符串可以用以下哪种引号定义？", "options": ["只能用双引号", "只能用单引号", "单引号或双引号都可以", "只能用三引号"], "answer": "C"},
-        {"text": "以下哪个关键字用于处理异常？", "options": ["catch", "except", "handle", "error"], "answer": "B"},
-        {"text": "Python中 'is' 和 '==' 的区别是什么？", "options": ["没有区别", "'is'比较值，'=='比较引用", "'is'比较引用，'=='比较值", "'is'只能用于数字"], "answer": "C"},
-        {"text": "以下哪个内置函数可以将字符串转为整数？", "options": ["str()", "int()", "float()", "bool()"], "answer": "B"},
-        {"text": "Python中列表切片 a[1:3] 包含哪些索引的元素？", "options": ["1, 2, 3", "1, 2", "0, 1, 2", "0, 1"], "answer": "B"},
-        {"text": "以下哪个模块用于生成随机数？", "options": ["math", "os", "random", "sys"], "answer": "C"},
-        {"text": "Python中如何定义一个类？", "options": ["class MyClass:", "define MyClass:", "struct MyClass:", "new MyClass:"], "answer": "A"},
-        {"text": "以下哪个方法可以将列表反转？", "options": ["list.sort()", "list.reverse()", "list.flip()", "list.invert()"], "answer": "B"},
-        {"text": "Python中哪个关键字用于导入模块？", "options": ["include", "require", "import", "using"], "answer": "C"},
-        {"text": "以下哪种循环在条件为真时执行？", "options": ["for", "while", "do-while", "foreach"], "answer": "B"},
-        {"text": "Python文件的默认扩展名是？", "options": [".python", ".pt", ".py", ".pn"], "answer": "C"},
-        {"text": "以下哪个函数可以打开文件？", "options": ["open()", "read()", "file()", "load()"], "answer": "A"},
+        {"text": "下列哪个语句在Python中是非法的？", "options": ["x = y = z = 1", "x = (y = z + 1)", "x, y = y, x", "x  +=  y"], "answer": "B"},
+        {"text": "关于Python内存管理，下列说法错误的是", "options": ["变量不必事先声明", "变量无须先创建和赋值而直接使用", "变量无须指定类型", "可以使用del释放资源"], "answer": "B"},
+        {"text": "以下不能创建一个字典的语句是", "options": ["dict1 = {}", "dict2 = { 3 : 5 }", 'dict3 = {[1,2,3]: "uestc"}', 'dict4 = {(1,2,3): "uestc"}'], "answer": "C"},
+        {"text": "python 代码执行的方式", "options": ["编译执行", "解析执行", "直接执行", "边编译边执行"], "answer": "B"},
+        {"text": "调用以下函数返回的值\ndef myfun():\n    pass", "options": ["0", "出错不能运行", "空字符串", "None"], "answer": "D"},
+        {"text": "导入模块的方式错误的是", "options": ["import mo", "from mo import *", "import mo as m", "import m from mo"], "answer": "D"},
+        {"text": "以下关于模块说法错误的是", "options": ["一个xx.py就是一个模块", "任何一个普通的xx.py文件可以作为模块导入", "模块文件的扩展名不一定是 .py", "运行时会从指定的目录搜索导入的模块，如果没有，会报错异常"], "answer": "C"},
+        {"text": "关于Python循环结构，以下选项中描述错误的是", "options": ["每个continue语句只有能力跳出当前层次的循环", "break用来跳出最内层for或者while循环，脱离该循环后程序从循环代码后继续执行", "遍历循环中的遍历结构可以是字符串、文件、组合数据类型和range()函数等", "Python通过for、while等保留字提供遍历循环和无限循环结构"], "answer": "A"},
+        {"text": "关于Python的lambda函数，以下选项中描述错误的是", "options": ["lambda函数将函数名作为函数结果返回", "f = lambda x,y:x+y 执行后，f的类型为数字类型", "lambda用于定义简单的、能够在一行内表示的函数", "可以使用lambda函数定义列表的排序原则"], "answer": "B"},
+        {"text": '给出如下代码，下述代码的输出结果是\ns = "Alice"\nprint(s[::-1])', "options": ["ALICE", "ecilA", "Alic", "Alice"], "answer": "B"},
+        {"text": "在Python中，关于全局变量和局部变量，以下选项中描述不正确的是", "options": ["一个程序中的变量包含两类：全局变量和局部变量", "全局变量不能和局部变量重名", "全局变量一般没有缩进", "全局变量在程序执行的全过程有效"], "answer": "B"},
+        {"text": "下面代码的输出结果是\ndict = {'a': 1, 'b': 2, 'b': '3'}\ntemp = dict['b']\nprint(temp)", "options": ["1", "{'b': 2}", "3", "2"], "answer": "C"},
+        {"text": "关于函数的可变参数，可变参数*args传入函数时存储的类型是", "options": ["dict", "tuple", "list", "set"], "answer": "B"},
+        {"text": "以下不能创建一个字典的语句是", "options": ["dic1 = {}", "dic2 = {123:345}", "dic3 = {[1,2,3]:'uestc'}", "dic3 = {(1,2,3):'uestc'}"], "answer": "C"},
+        {"text": "下面的语句哪个会无限循环下去", "options": ["for a in range(10): time.sleep(10)", "while 1<10: time.sleep(10)", "while True: break", "a = [3,-1,',']\nfor i in a[:]: if not a: break"], "answer": "B"},
+        {"text": "以下关于循环结构的描述，错误的是", "options": ["遍历循环使用for <循环变量> in <循环结构>语句，其中循环结构不能是文件", "使用range()函数可以指定for循环的次数", "for i in range(5)表示循环5次，i的值是从0到4", "用字符串做循环结构的时候，循环的次数是字符串的长度"], "answer": "A"},
+        {"text": "关于 Python 的分支结构，以下选项中描述错误的是", "options": ["分支结构使用 if 保留字", "Python 中 if-else 语句用来形成二分支结构", "Python 中 if-elif-else 语句描述多分支结构", "分支结构可以向已经执行过的语句部分跳转"], "answer": "D"},
+        {"text": '以下语句执行后a、b、c的值是\na = "watermelon"\nb = "strawberry"\nc = "cherry"\nif a > b:\n    c = a\n    a = b\n    b = c', "options": ["watermelon strawberry cherry", "watermelon cherry strawberry", "strawberry cherry watermelon", "strawberry watermelon watermelon"], "answer": "D"},
+        {"text": "以下代码的输出结果是什么？\n\ndef func(x, lst=[]):\n    lst.append(x)\n    return lst\n\na = func(1)\nb = func(2)\nprint(a, b)", "options": ["[1] [2]", "[1] [1, 2]", "[1, 2] [1, 2]", "[1, 2] [2]"], "answer": "C"},
+        {"text": "以下代码的输出结果是什么？\n\ndata = {'a': 1, 'b': 2, 'c': 3}\nfor key in data:\n    if data[key] % 2 == 0:\n        data[key] = data[key] * 2\n    else:\n        data[key] = data[key] + 1\n\nprint(data)", "options": ["{'a': 2, 'b': 4, 'c': 2}", "{'a': 2, 'b': 4, 'c': 3}", "{'a': 2, 'b': 4, 'c': 4}", "{'a': 1, 'b': 4, 'c': 3}"], "answer": "C"},
     ]
 
     for q in choice_questions:
@@ -673,13 +680,18 @@ def seed_data():
         )
         db.session.add(question)
 
-    # 导入5道简答题
+    # ==================== 10道简答题 ====================
     essay_questions = [
-        "请简述Python中列表(list)和元组(tuple)的主要区别。",
-        "请解释Python中的装饰器(decorator)是什么，并举一个简单例子说明。",
-        "请简述Python中的GIL(全局解释器锁)是什么，它对多线程编程有什么影响？",
-        "请解释Python中深拷贝和浅拷贝的区别。",
-        "请简述Python中异常处理的机制，try/except/finally各起什么作用？",
+        "请简述你印象最深刻的一个RPA项目，需要表明其中的业务细节，关键技术点，技术卡点等。越详细分数越高",
+        "A,B电脑在硬件配置，网络环境一致，影刀及钉钉版本一致的情况下。A电脑使用影刀可以正常捕获元素，B电脑只能捕获到窗体，请简述一下发生此问题的原因。",
+        "什么是 JS 加密，在爬虫中为什么会遇到 JS 加密？有那些加密形式？",
+        "常见的HTTP状态码有哪些？分别代表什么含义？",
+        "你认为完整的提示词（prompt）应该包含哪些内容",
+        "什么是API？如何设计一个安全的请求API？如何测试API的性能？",
+        "当你在使用用影刀操作网页时，遇到【执行相似元素出错：下标值超过最大下标】的报错，请阐述可能出现该问题的原因",
+        "当你用影刀下载文件指令时，该文件肉眼可见的下载完成，但是下载文件指令仍在运行，并报了下载文件超时的错误。请简述出现该问题的原因",
+        "当你设计某网页操作流程时，某元素会经常报元素失效的错误，但是进行元素检验时又可以检验到。请简述发生这种情况的原因可能有哪些？",
+        "常见的HTTP请求方法有哪些？GET和POST请求有什么区别？",
     ]
 
     for text in essay_questions:
@@ -690,11 +702,18 @@ def seed_data():
         )
         db.session.add(question)
 
-    # 导入3道编程/设计题
+    # ==================== 10道编程/设计题 ====================
     programming_questions = [
-        "请编写一个Python函数，接收一个列表作为参数，返回列表中出现次数最多的元素。如果有多个元素出现次数相同，返回其中任意一个即可。请考虑边界情况。",
-        "请设计一个简单的RPA流程，用于自动化处理Excel报表：读取源文件，按部门汇总销售数据，生成新的汇总报表。请用伪代码或Python代码描述核心逻辑。",
-        "请编写一个Python类来实现一个简单的缓存系统(LRU Cache)，支持get和put操作，并在缓存满时淘汰最近最少使用的数据。",
+        "如果遇到该题目，你可以将姓名+电话号码+面试公司提交到答案框。答完其他题目后先提交试卷，打开影刀设计器及录屏软件编写该项目，并将录屏以姓名+面试公司的方式命名提交给面试官。\n\n题目描述：打开影刀商城https://shop.yingdao.com/\n1. 需设计登录操作，账号：admin，密码：58T2$!hm\n2. 在【订单管理】页面，将所有商品名称为"篮球鞋"且订单状态为完成的商品点击发货\n3. 新建Excel文件，以当前日期命名，将已发货的订单编号，商品名称，金额，日期和"已发货"记入【已发货】sheet页中\n4. 在【工作台-退款管理页面】，导出待退款订单详情，将所有退款类型为"仅退款"且发货物流为"未发货"的订单点击同意申请，并在Excel中将"退款状态"更改为"已退款"。",
+        "如果遇到该题目，你可以将姓名+电话号码+面试公司提交到答案框。答完其他题目后先提交试卷，打开影刀设计器及录屏软件编写该项目，并将录屏以姓名+面试公司的方式命名提交给面试官。\n\n题目描述：应用中请模拟人工登录，勿使用「京东登录」指令。\n1. 账号登录：登录京东商城，完成滑块验证\n2. 在首页搜索水果，按销量排序\n3. 数据获取：获取销量前20的商品信息，包括：销量排名、商品主图、商品标题、商品价格、店铺名、商品详情（品牌 商品名称 商品编号 商品产地 品种）、好评率\n4. 将获取的商品信息保存至本地Excel表格，其中若商品详情中缺少某个类目，则写入"其他"\n5. 在上述自动化流程中，对流程做异常处理\n6. 最后在完成的基础上，做流程封装。",
+        "如果遇到该题目，你可以将姓名+电话号码+面试公司提交到答案框。答完其他题目后先提交试卷，打开影刀设计器及录屏软件编写该项目，并将录屏以姓名+面试公司的方式命名提交给面试官。\n\n题目描述：请根据配置文档，完成短信转发器与影刀的交互，具体要求如下：\n1. 选择自己的手机型号，在手机端完成转发器的配置。配置要求如下：只识别或转发开头为【影刀】的消息。\n2. 手机收到该消息后可以自动转发至指定邮箱（邮箱形式不限）\n3. 设计影刀应用监听该邮箱，当收到以【影刀】为开头的消息时，自动弹出对话框显示该消息",
+        "DNA序列由一系列核苷酸组成，缩写为 'A', 'C', 'G' 和 'T'。例如，\"ACGAATTCCG\" 是一个DNA序列。\n给定一个表示DNA序列的字符串s，返回所有在DNA分子中出现不止一次的长度为10的序列(子字符串)。你可以按任意顺序返回答案。\n\n示例1：\n输入：s = \"AAAAACCCCCAAAAACCCCCCAAAAAGGGTTT\"\n输出：[\"AAAAACCCCC\",\"CCCCCAAAAA\"]\n\n示例2：\n输入：s = \"AAAAAAAAAAAAA\"\n输出：[\"AAAAAAAAAA\"]",
+        "假设n个人站成一排，按从1到n编号。最初，排在队首的第一个人拿着一个枕头。每秒钟，拿着枕头的人会将枕头传递给队伍中的下一个人。一旦枕头到达队首或队尾，传递方向就会改变，队伍会继续沿相反方向传递枕头。\n例如，当枕头到达第n个人时，TA会将枕头传递给第n-1个人，然后传递给第n-2个人，依此类推。\n给你两个正整数n和time，返回time秒后拿着枕头的人的编号。",
+        "给定一个整数列表nums和一个整数目标值target，请你在该数组中找出和为目标值target的那两个整数，并返回它们的列表下标。\n你可以假设每种输入只会对应一个答案，并且你不能使用两次相同的元素。你可以按任意顺序返回答案。\n\n示例1：\n输入：nums = [2,7,11,15], target = 9\n输出：[0,1]\n解释：因为nums[0] + nums[1] == 9，返回[0, 1]。\n\n示例2：\n输入：nums = [3,2,4], target = 6\n输出：[1,2]\n\n示例3：\n输入：nums = [3,3], target = 6\n输出：[0,1]",
+        "编写一个函数来查找字符串数组中的最长公共前缀。如果不存在公共前缀，返回空字符串\"\"。\n\n示例1：\n输入：strs = [\"flower\",\"flow\",\"flight\"]\n输出：\"fl\"\n\n示例2：\n输入：strs = [\"dog\",\"racecar\",\"car\"]\n输出：\"\"\n解释：输入不存在公共前缀。",
+        "某一天，老板告诉你"我需要一个数据看板"（没错，只告诉你这一句话），请你根据你以往经验设计一套沟通方案和产品方案（产品方案可不局限于RPA）",
+        "你需要轮训某业务人员提供给你的100个网址，获取每个网址中商品的价格（注意不同平台的元素排列方式可能会有不同，但不完全不同。可以这么理解，这些网站来自不同的平台，有些网站可能来自一样的平台），且这些网站都有一种不定时的风控（频次未知，形式为滑动验证，且触发频次过多的时候会出现人脸识别的情况），为完成该需求，请简述你的开发方案。",
+        "在使用RPA应用操作网页时，网页中出现了许多不定时的弹窗如验证码、广告等阻碍你接下来的操作，请简述解决方法",
     ]
 
     for text in programming_questions:
@@ -709,7 +728,7 @@ def seed_data():
 
     total = Question.query.count()
     return jsonify({
-        'message': f'种子数据初始化成功！共导入{total}道题目',
+        'message': f'题库更新成功！共{total}道题目',
         'detail': {
             'choice': len(choice_questions),
             'essay': len(essay_questions),
