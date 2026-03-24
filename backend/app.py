@@ -641,8 +641,9 @@ def seed_data():
         config = ExamConfig(duration_minutes=90)
         db.session.add(config)
 
-    # 如果 force=true，清空旧题库
+    # 如果 force=true，清空旧题库（需先清除引用题目的答题记录）
     if force and existing_questions > 0:
+        Answer.query.delete()
         Question.query.delete()
         db.session.commit()
 
