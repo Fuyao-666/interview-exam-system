@@ -24,8 +24,13 @@ if database_url:
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    print(f"[DB] 使用 PostgreSQL 数据库")
 else:
+    if os.environ.get('RENDER'):
+        # 在 Render 上必须使用 PostgreSQL，防止回退到 SQLite 丢数据
+        raise RuntimeError("错误：未设置 DATABASE_URL 环境变量，Render 环境下不允许使用 SQLite！")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'interview.db')
+    print(f"[DB] 使用本地 SQLite 数据库（开发模式）")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=8)
